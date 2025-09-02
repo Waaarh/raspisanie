@@ -1,0 +1,58 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"strings"
+
+	"github.com/xuri/excelize/v2"
+)
+
+func main() {
+	inputPath := "/home/idris/GolandProjects/Raspisanie/123.xlsx"
+	outputPath := "/home/idris/GolandProjects/Raspisanie/123_очищенное.xlsx"
+
+	f, err := excelize.OpenFile(inputPath)
+	if err != nil {
+		log.Fatalf("Ошибка открытия: %v", err)
+	}
+	defer f.Close()
+
+	// Обрабатываем каждый лист
+	for _, sheet := range f.GetSheetList() {
+		fmt.Printf("Обрабатываем лист: %s\n", sheet)
+
+		// Получаем все строки
+		rows, err := f.GetRows(sheet)
+		if err != nil {
+			log.Printf("Ошибка чтения листа %s: %v", sheet, err)
+			continue
+		}
+
+		// Собираем номера строк для удаления (снизу вверх!)
+		var toDelete []int
+		for i, row := range rows {
+			// Проверяем: есть ли "(урок)" в ячейках
+			for _, cell := range row {
+				if strings.TrimSpace(cell) == "(урок)" {
+					toDelete = append(toDelete, i+1) // Excel: 1-based
+					fmt.Printf("❌ Строка %d помечена для удаления: %v\n", i+1, row)
+					break
+				}
+			}
+		}
+
+		// Удаляем строки снизу вверх (чтобы индексы не сбивались)
+		for i := len(toDelete) - 1; i >= 0; i-- {
+			rowNum := toDelete[i]
+			f.RemoveRow(sheet, rowNum)
+		}
+	}
+
+	// Сохраняем
+	if err := f.SaveAs(outputPath); err != nil {
+		log.Fatalf("Ошибка сохранения: %v", err)
+	}
+
+	fmt.Println("🎉 Готово:", outputPath)
+}
